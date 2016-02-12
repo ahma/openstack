@@ -19,6 +19,7 @@
     - neutron-dhcp-agent
     - neutron-metadata-agent
     - neutron-lbaas-agent
+    - strongswan
   when: inventory_hostname in groups['neutron_controller']
 
 - name: disable autostarting of neutron agent on computes
@@ -62,7 +63,7 @@
   with_items:
     - conntrack
     - keepalived
-    - openswan
+    - strongswan
     - neutron-server
     - neutron-plugin-ml2
     - neutron-plugin-linuxbridge-agent
@@ -74,12 +75,24 @@
     - python-neutronclient
   when: inventory_hostname in groups['neutron_controller']
 
+- name: stop and disable strongswan
+  service: name=strongswan state=stopped enabled=no
+  when: inventory_hostname in groups['neutron_controller']
+
 - name: install neutron compute packages
   apt: name={{ item }}
   with_items:
     - conntrack
     - neutron-plugin-linuxbridge-agent
   when: inventory_hostname in groups['neutron_compute']
+
+- name: disable apparmor strongswan profiles
+  file: path=/etc/apparmor.d/disable/{{ item }} src=/etc/apparmor.d/{{ item }} state=link
+  with_items:
+    - usr.lib.ipsec.charon
+    - usr.lib.ipsec.stroke
+  when: inventory_hostname in groups['neutron_controller'] and neutron_vpnaas == True
+  notify: reload apparmor
 
 - name: create neutron database
   mysql_db: name={{ neutron_db }}
@@ -105,6 +118,7 @@
     - metadata_agent.ini
     - fwaas_driver.ini
     - lbaas_agent.ini
+    - vpn_agent.ini
   notify:
     - restart neutron controller services
   when: inventory_hostname in groups['neutron_controller']

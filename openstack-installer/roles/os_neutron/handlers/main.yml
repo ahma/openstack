@@ -19,3 +19,6 @@
 
 - name: reload sysctl
   service: name=procps state=started
+
+- name: reload apparmor
+  service: name=apparmor state=reloaded
